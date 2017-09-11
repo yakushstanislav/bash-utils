@@ -26,6 +26,7 @@ MOUNT_BIN=$(which mount)
 UMOUNT_BIN=$(which umount)
 
 MKFS_BIN=$(which mkfs.$FS_TYPE)
+FSCK_BIN=$(which fsck.$FS_TYPE)
 
 CRYPTSETUP_BIN=$(which cryptsetup)
 SHA1SUM_BIN=$(which sha1sum)
@@ -158,8 +159,15 @@ mount_storage()
     $MKDIR_BIN -p $MOUNTPOINT
     check_last_error
 
+    $FSCK_BIN /dev/mapper/$NAME
+    if [ $? -ne 0 ]; then
+        $CRYPTSETUP_BIN luksClose $NAME
+        echo "${COLOR_RED}Storage filesystem ${FS_TYPE} is corrupted${COLOR_DEFAULT}"
+        exit 1
+    fi
+
     $MOUNT_BIN /dev/mapper/$NAME $MOUNTPOINT
-    if [ ! $? -eq 0 ]; then
+    if [ $? -ne 0 ]; then
         $CRYPTSETUP_BIN luksClose $NAME
         echo "${COLOR_RED}Failed to mount storage${COLOR_DEFAULT}"
         exit 1

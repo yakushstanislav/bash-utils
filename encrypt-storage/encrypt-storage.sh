@@ -239,7 +239,7 @@ show_help()
 {
     print_logo
 
-    echo "Usage encrypt_storage.sh script:"
+    echo "Usage $SCRIPT_NAME script:"
     echo "    $SCRIPT_NAME create <path> <size in GB>"
     echo "    $SCRIPT_NAME delete <path>"
     echo "    $SCRIPT_NAME mount <path>"

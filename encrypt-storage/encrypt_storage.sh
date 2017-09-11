@@ -89,13 +89,18 @@ create_storage()
     $DD_BIN if=/dev/zero of=$1 bs=${SIZE}M count=1000
     check_last_error
 
-    $CRYPTSETUP_BIN create $NAME $PATH
+    $CRYPTSETUP_BIN -q luksFormat $PATH
+    check_last_error
+
+    echo "${COLOR_YELLOW}Please, enter passphrase again...${COLOR_DEFAULT}"
+
+    $CRYPTSETUP_BIN luksOpen $PATH $NAME
     check_last_error
 
     $MKFS_BIN /dev/mapper/$NAME
     check_last_error
 
-    $CRYPTSETUP_BIN close $NAME
+    $CRYPTSETUP_BIN luksClose $PATH $NAME
     check_last_error
 
     echo "${COLOR_GREEN}Storage (Path: $PATH) successfully created!${COLOR_DEFAULT}"
@@ -113,7 +118,7 @@ delete_storage()
 
     $CRYPTSETUP_BIN status $NAME
     if [ $? -eq 0 ]; then
-        $CRYPTSETUP_BIN close $NAME
+        $CRYPTSETUP_BIN luksClose $NAME
         check_last_error
     fi
 
@@ -139,7 +144,7 @@ mount_storage()
 
     $CRYPTSETUP_BIN status $NAME
     if [ $? -ne 0 ]; then
-        $CRYPTSETUP_BIN open --type plain $PATH $NAME
+        $CRYPTSETUP_BIN luksOpen $PATH $NAME
         check_last_error
     fi
 
@@ -153,7 +158,7 @@ mount_storage()
 
     $MOUNT_BIN /dev/mapper/$NAME $MOUNTPOINT
     if [ ! $? -eq 0 ]; then
-        $CRYPTSETUP_BIN close $NAME
+        $CRYPTSETUP_BIN luksClose $NAME
         echo "${COLOR_RED}Failed to mount storage${COLOR_DEFAULT}"
         exit 1
     fi
@@ -186,7 +191,7 @@ umount_storage()
 
     $CRYPTSETUP_BIN status $NAME > /dev/null 2>&1
     if [ $? -eq 0 ]; then
-        $CRYPTSETUP_BIN close $NAME
+        $CRYPTSETUP_BIN luksClose $NAME
         check_last_error
     fi
 

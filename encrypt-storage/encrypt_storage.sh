@@ -89,13 +89,15 @@ create_storage()
     $DD_BIN if=/dev/zero of=$1 bs=${SIZE}M count=1000
     check_last_error
 
-    $CRYPTSETUP_BIN -q luksFormat $PATH
+    $CRYPTSETUP_BIN -q -y luksFormat $PATH
     check_last_error
 
-    echo "${COLOR_YELLOW}Please, enter passphrase again...${COLOR_DEFAULT}"
+    echo "${COLOR_BLUE}Please, enter passphrase again...${COLOR_DEFAULT}"
 
     $CRYPTSETUP_BIN luksOpen $PATH $NAME
     check_last_error
+
+    echo "${COLOR_YELLOW}Format storage...${COLOR_DEFAULT}"
 
     $MKFS_BIN /dev/mapper/$NAME
     check_last_error

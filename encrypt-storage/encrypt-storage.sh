@@ -36,11 +36,11 @@ SCRIPT_NAME=$($BASENAME_BIN $0)
 
 check_variable()
 {
-    NAME=$1
-    VALUE=$2
+    local name=$1
+    local value=$2
 
-    if [ -z $VALUE ]; then
-        echo "${COLOR_RED}Variable \"$NAME\" is not set${COLOR_DEFAULT}"
+    if [ -z $value ]; then
+        echo "${COLOR_RED}Variable \"$name\" is not set${COLOR_DEFAULT}"
         exit 1
     fi
 }
@@ -55,172 +55,172 @@ check_last_error()
 
 check_storage_exists()
 {
-    PATH=$1
+    local path=$1
 
-    if [ ! -f $PATH ]; then
-        echo "${COLOR_RED}Storage $PATH not exists${COLOR_DEFAULT}"
+    if [ ! -f $path ]; then
+        echo "${COLOR_RED}Storage $path not exists${COLOR_DEFAULT}"
         exit 1
     fi
 }
 
 get_sha1_sum()
 {
-    SHA1_SUM=$(echo -n $1 | $SHA1SUM_BIN | $AWK_BIN '{print $1}')
+    local sha1_sum=$(echo -n $1 | $SHA1SUM_BIN | $AWK_BIN '{print $1}')
 
-    echo $SHA1_SUM
+    echo $sha1_sum
 }
 
 create_storage()
 {
-    PATH=$1
-    SIZE=$2
+    local path=$1
+    local size=$2
 
-    check_variable "Path" $PATH
-    check_variable "Size" $SIZE
+    check_variable "Path" $path
+    check_variable "Size" $size
 
-    NAME=$($BASENAME_BIN $PATH)
+    local name=$($BASENAME_BIN $path)
 
-    echo "${COLOR_CYAN}Create storage (Name: $NAME, Path: $PATH, Size: $SIZE)${COLOR_DEFAULT}"
+    echo "${COLOR_CYAN}Create storage (Name: $name, Path: $path, Size: $size)${COLOR_DEFAULT}"
 
-    if [ -f $PATH ]; then
-        echo "${COLOR_RED}Storage $PATH already exists${COLOR_DEFAULT}"
+    if [ -f $path ]; then
+        echo "${COLOR_RED}Storage $path already exists${COLOR_DEFAULT}"
         exit 1
     fi
 
-    $DD_BIN if=/dev/zero of=$1 bs=${SIZE}M count=1000
+    $DD_BIN if=/dev/zero of=$1 bs=${size}M count=1000
     check_last_error
 
-    $CRYPTSETUP_BIN -q -y luksFormat $PATH
+    $CRYPTSETUP_BIN -q -y luksFormat $path
     check_last_error
 
     echo "${COLOR_BLUE}Please, enter passphrase again...${COLOR_DEFAULT}"
 
-    $CRYPTSETUP_BIN luksOpen $PATH $NAME
+    $CRYPTSETUP_BIN luksOpen $path $name
     check_last_error
 
     echo "${COLOR_YELLOW}Format storage...${COLOR_DEFAULT}"
 
-    $MKFS_BIN /dev/mapper/$NAME
+    $MKFS_BIN /dev/mapper/$name
     check_last_error
 
-    $CRYPTSETUP_BIN luksClose $PATH $NAME
+    $CRYPTSETUP_BIN luksClose $path $name
     check_last_error
 
-    echo "${COLOR_GREEN}Storage (Path: $PATH) successfully created!${COLOR_DEFAULT}"
+    echo "${COLOR_GREEN}Storage (Path: $path) successfully created!${COLOR_DEFAULT}"
 }
 
 delete_storage()
 {
-    PATH=$1
+    local path=$1
 
-    check_variable "Path" $PATH
+    check_variable "Path" $path
 
-    NAME=$($BASENAME_BIN $PATH)
+    local name=$($BASENAME_BIN $path)
 
-    echo "${COLOR_CYAN}Delete storage (Name: $NAME, Path: $PATH)${COLOR_DEFAULT}"
+    echo "${COLOR_CYAN}Delete storage (Name: $name, Path: $path)${COLOR_DEFAULT}"
 
-    $CRYPTSETUP_BIN status $NAME
+    $CRYPTSETUP_BIN status $name
     if [ $? -eq 0 ]; then
-        $CRYPTSETUP_BIN luksClose $NAME
+        $CRYPTSETUP_BIN luksClose $name
         check_last_error
     fi
 
-    check_storage_exists $PATH
+    check_storage_exists $path
 
-    $RM_BIN -i $PATH
+    $RM_BIN -i $path
     check_last_error
 
-    echo "${COLOR_GREEN}Storage (Path: $PATH) deleted!${COLOR_DEFAULT}"
+    echo "${COLOR_GREEN}Storage (Path: $path) deleted!${COLOR_DEFAULT}"
 }
 
 mount_storage()
 {
-    PATH=$1
+    local path=$1
 
-    check_variable "Path" $PATH
+    check_variable "Path" $path
 
-    NAME=$($BASENAME_BIN $PATH)
+    local name=$($BASENAME_BIN $path)
 
-    echo "${COLOR_CYAN}Mount storage (Name: $NAME, Path: $PATH)${COLOR_DEFAULT}"
+    echo "${COLOR_CYAN}Mount storage (Name: $name, Path: $path)${COLOR_DEFAULT}"
 
-    check_storage_exists $PATH
+    check_storage_exists $path
 
-    $CRYPTSETUP_BIN status $NAME
+    $CRYPTSETUP_BIN status $name
     if [ $? -ne 0 ]; then
-        $CRYPTSETUP_BIN luksOpen $PATH $NAME
+        $CRYPTSETUP_BIN luksOpen $path $name
         check_last_error
     fi
 
-    REAL_PATH=$($REALPATH_BIN $PATH)
+    local real_path=$($REALPATH_BIN $path)
 
-    SHA1SUM=$(get_sha1_sum $REAL_PATH)
-    MOUNTPOINT=$PWD/$MOUNTPOINT_PREFIX${SHA1SUM}_${NAME}
+    local sha1_sum=$(get_sha1_sum $real_path)
+    local mountpoint=$PWD/$MOUNTPOINT_PREFIX${sha1_sum}_${name}
 
-    $MKDIR_BIN -p $MOUNTPOINT
+    $MKDIR_BIN -p $mountpoint
     check_last_error
 
-    $FSCK_BIN /dev/mapper/$NAME
+    $FSCK_BIN /dev/mapper/$name
     if [ $? -ne 0 ]; then
-        $CRYPTSETUP_BIN luksClose $NAME
+        $CRYPTSETUP_BIN luksClose $name
         echo "${COLOR_RED}Storage filesystem ${FS_TYPE} is corrupted${COLOR_DEFAULT}"
         exit 1
     fi
 
-    $MOUNT_BIN /dev/mapper/$NAME $MOUNTPOINT
+    $MOUNT_BIN /dev/mapper/$name $mountpoint
     if [ $? -ne 0 ]; then
-        $CRYPTSETUP_BIN luksClose $NAME
+        $CRYPTSETUP_BIN luksClose $name
         echo "${COLOR_RED}Failed to mount storage${COLOR_DEFAULT}"
         exit 1
     fi
 
-    echo "${COLOR_GREEN}Storage (Path: $PATH) is mounted!${COLOR_DEFAULT}"
+    echo "${COLOR_GREEN}Storage (Path: $path) is mounted!${COLOR_DEFAULT}"
 }
 
 umount_storage()
 {
-    PATH=$1
+    local path=$1
 
-    check_variable "Path" $PATH
+    check_variable "Path" $path
 
-    NAME=$($BASENAME_BIN $PATH)
+    local name=$($BASENAME_BIN $path)
 
-    echo "${COLOR_CYAN}Umount storage (Name: $NAME, Path: $PATH)${COLOR_DEFAULT}"
+    echo "${COLOR_CYAN}Umount storage (Name: $name, Path: $path)${COLOR_DEFAULT}"
 
-    check_storage_exists $PATH
+    check_storage_exists $path
 
-    REAL_PATH=$($REALPATH_BIN $PATH)
+    local real_path=$($REALPATH_BIN $path)
 
-    SHA1SUM=$(get_sha1_sum $REAL_PATH)
-    MOUNTPOINT=$PWD/$MOUNTPOINT_PREFIX${SHA1SUM}_${NAME}
+    local sha1_sum=$(get_sha1_sum $real_path)
+    local mountpoint=$PWD/$MOUNTPOINT_PREFIX${sha1_sum}_${name}
 
-    $UMOUNT_BIN -l -f $MOUNTPOINT
+    $UMOUNT_BIN -l -f $mountpoint
     check_last_error
 
-    $RMDIR_BIN $MOUNTPOINT
+    $RMDIR_BIN $mountpoint
     check_last_error
 
-    $CRYPTSETUP_BIN status $NAME > /dev/null 2>&1
+    $CRYPTSETUP_BIN status $name > /dev/null 2>&1
     if [ $? -eq 0 ]; then
-        $CRYPTSETUP_BIN luksClose $NAME
+        $CRYPTSETUP_BIN luksClose $name
         check_last_error
     fi
 
-    echo "${COLOR_GREEN}Storage (Path: $PATH) is unmounted!${COLOR_DEFAULT}"
+    echo "${COLOR_GREEN}Storage (Path: $path) is unmounted!${COLOR_DEFAULT}"
 }
 
 status_storage()
 {
-    PATH=$1
+    local path=$1
 
-    check_variable "Path" $PATH
+    check_variable "Path" $path
 
-    NAME=$($BASENAME_BIN $PATH)
+    local name=$($BASENAME_BIN $path)
 
-    echo "${COLOR_CYAN}Status storage (Path: $PATH)${COLOR_DEFAULT}"
+    echo "${COLOR_CYAN}Status storage (Path: $path)${COLOR_DEFAULT}"
 
-    check_storage_exists $PATH
+    check_storage_exists $path
 
-    $CRYPTSETUP_BIN status $NAME
+    $CRYPTSETUP_BIN status $name
 }
 
 print_logo()
